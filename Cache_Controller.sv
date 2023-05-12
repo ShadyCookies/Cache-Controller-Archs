@@ -22,6 +22,8 @@
 
 module Cache_Controller(clk,reset,addr,rw,rdata,wdata);
 
+// Cache Controller for L1 direct mapped cache with write-back, implemented using some jugaad method. Not recommended to use as a baseline controller.    
+    
 parameter DATA_WIDTH = 32;
 parameter L1_BLOCK_COUNT = 64;
 parameter MM_BLOCK_COUNT = 1024;
