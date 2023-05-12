@@ -22,7 +22,7 @@
 
 module CacheController_v2(clk,reset,addr,rw,rdata,wdata);   
 
-// Cache Controller for L1 direct mapped cache, but implemented using states.
+// Cache Controller for L1 direct mapped cache with write through, but implemented using states.
 
 parameter DATA_WIDTH = 32;
 parameter L1_BLOCK_COUNT = 64;
