@@ -40,11 +40,11 @@ output logic [DATA_WIDTH-1:0] rdata;
 MainMemory M1(reset);
 L1_Cache L1(reset);
 
-logic writeToMem;
-logic [DATA_WIDTH-1:0] dataBuffer;
-logic [MM_BLOCK_COUNT_BITS-1:0] addrBuffer;
-logic [L1_TAG_BITS-1:0] tagval;
-logic [L1_INDEX_BITS-1:0] indexval;
+logic writeToMem;                               // writeback condition flag
+logic [DATA_WIDTH-1:0] dataBuffer;              // holds the evicted cache data 
+logic [MM_BLOCK_COUNT_BITS-1:0] addrBuffer;     // holds the evicted cache addess 
+logic [L1_TAG_BITS-1:0] tagval;                 // address tag bits for comparison
+logic [L1_INDEX_BITS-1:0] indexval;             // address index bits for comparison
 
 typedef enum logic [2:0] {CACHE_IDLE, CACHE_COMPARE, CACHE_READ, CACHE_WRITE, CACHE_MISS} CACHE_STATE;
 enum logic {READ,WRITE} INSTR;
@@ -59,26 +59,25 @@ always @ (posedge clk, posedge reset)
         
 always @ (currentState)
 begin   
-    if(writeToMem == 1) begin   // data eviction check
-        M1.mem[addrBuffer] = dataBuffer;  // write back evicted data
+    if(writeToMem == 1) begin               // data eviction check
+        M1.mem[addrBuffer] = dataBuffer;    // write back evicted data
         writeToMem = 0;
     end
     case(currentState) 
         CACHE_IDLE: begin         
                         nextState = CACHE_COMPARE;
                     end             
-        CACHE_COMPARE: begin            // tag matching and valid checking
-        
+        CACHE_COMPARE: begin                                        // tag matching and valid checking
                          indexval = addr % L1_BLOCK_COUNT;
                          tagval = addr[MM_BLOCK_COUNT_BITS-1:L1_INDEX_BITS];
                          
                          if(L1.valid[indexval] == 1 && tagval == L1.tag[indexval]) begin  // cache hit condition
                             case(rw)
-                                READ: begin             // Read is done in 1 cc
+                                READ: begin                         // Read is done in 1 cc
                                         rdata = L1.mem[indexval];
                                         nextState = CACHE_IDLE;
                                       end  
-                                WRITE: begin             // write is done in 1 cc
+                                WRITE: begin                        // write is done in 1 cc
                                         L1.mem[indexval] = wdata;
                                         L1.valid[indexval] = 1;
                                         L1.dirty[indexval] = 1;
@@ -89,23 +88,25 @@ begin
                          else 
                              nextState = CACHE_MISS;    
                        end                       
-        CACHE_READ: begin               // read from cache
+        CACHE_READ: begin                           // read from cache
                         rdata = L1.mem[indexval];
                         nextState = CACHE_COMPARE;
                     end  
-        CACHE_WRITE: begin              // write to cache
+        CACHE_WRITE: begin                          // write to cache
                         L1.mem[indexval] = wdata;
                         L1.tag[indexval] = tagval;
                         L1.valid[indexval] = 1;
                         L1.dirty[indexval] = 1;
                         nextState = CACHE_COMPARE;
                      end
-        CACHE_MISS: begin               // on cache miss, always read a block from mem     
-                      dataBuffer =  L1.mem[indexval];  // data to be written back
-                      addrBuffer = {L1.tag[indexval],indexval}; // main mem addr to write back to
+        CACHE_MISS: begin                           // on cache miss, always read a block from mem     
+                      dataBuffer =  L1.mem[indexval];               // data to be written back
+                      addrBuffer = {L1.tag[indexval],indexval};     // main mem addr to write back to
+            
                       L1.mem[indexval] = M1.mem[{tagval,indexval}];
                       L1.tag[indexval] = tagval;
                       L1.valid[indexval] = 1;
+            
                       if(L1.dirty[indexval] == 1) writeToMem = 1;   // if dirty, then writeback
                       if(rw == WRITE) nextState = CACHE_WRITE; 
                       else nextState = CACHE_READ;      
